@@ -1,0 +1,75 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>E4A ECG Compression — Benchmark Result</title>
+<style>
+:root{color-scheme:dark;--bg:#0b0f14;--panel:#111820;--border:#263240;--text:#e7edf5;--muted:#8d9aaa;--good:#69d39a;--bad:#ff7d7d;--accent:#67b7ff}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--text);font:14px system-ui,-apple-system,Segoe UI,sans-serif}
+main{max-width:1050px;margin:auto;padding:28px 18px}.top{display:flex;justify-content:space-between;gap:20px;align-items:end;margin-bottom:20px}
+h1{margin:0;font-size:26px}.sub{color:var(--muted);margin-top:5px}.panel{background:var(--panel);border:1px solid var(--border);border-radius:14px;padding:18px;margin-bottom:16px}
+.grid{display:grid;grid-template-columns:repeat(4,1fr);gap:10px}.card{border:1px solid var(--border);border-radius:10px;padding:14px}.card span{color:var(--muted);font-size:11px}.card b{display:block;font-size:21px;margin-top:4px}
+.good{color:var(--good)}.bad{color:var(--bad)}.accent{color:var(--accent)}
+table{width:100%;border-collapse:collapse}th,td{text-align:left;padding:11px;border-bottom:1px solid var(--border)}th{color:var(--muted);font-weight:500}
+.note{color:var(--muted);line-height:1.6}.bar{height:10px;background:#0a0f14;border-radius:99px;overflow:hidden}.fill{height:100%;background:var(--accent)}
+.actions{display:flex;gap:10px;flex-wrap:wrap}.button{display:inline-block;text-decoration:none;color:var(--text);border:1px solid var(--border);background:#182536;border-radius:9px;padding:10px 14px}
+@media(max-width:700px){.grid{grid-template-columns:1fr 1fr}.top{display:block}}@media(max-width:480px){.grid{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+<main>
+<div class="top">
+  <div>
+    <h1>ECG Compression Benchmark</h1>
+    <div class="sub">Verified browser-codec result for the bundled 500 Hz / 2 s sample</div>
+  </div>
+  <div class="small">Lossless test</div>
+</div>
+
+<section class="panel">
+  <div class="grid">
+    <div class="card"><span>Samples</span><b>1,000</b></div>
+    <div class="card"><span>Sampling rate</span><b>500 Hz</b></div>
+    <div class="card"><span>Raw size</span><b>3,000 B</b></div>
+    <div class="card"><span>Target</span><b class="bad">&le;1,000 B</b></div>
+  </div>
+</section>
+
+<section class="panel">
+<h2>Actual test result</h2>
+<p class="note">The bundled file <code>sample_ecg_500hz_2s.csv</code> was run through the same compression/decompression logic used by the lab. Reconstruction was compared sample-by-sample against the original integer sequence.</p>
+<table>
+<thead><tr><th>Codec</th><th>Compressed</th><th>Reduction</th><th>Exact reconstruction</th><th>1 KB target</th></tr></thead>
+<tbody>
+<tr><td>Delta + ZigZag Varint</td><td>2,098 B</td><td>30.1%</td><td class="good">PASS</td><td class="bad">NOT MET</td></tr>
+<tr><td>Delta-of-Delta + ZigZag Varint</td><td>1,717 B</td><td>42.8%</td><td class="good">PASS</td><td class="bad">NOT MET</td></tr>
+</tbody>
+</table>
+</section>
+
+<section class="panel">
+<h2>Compression ratio</h2>
+<p class="note">The best of the two tested modes reduced the 3,000-byte raw representation to 1,717 bytes.</p>
+<div class="bar"><div class="fill" style="width:57.23%"></div></div>
+<p class="note">57.2% of the raw size remains &nbsp;•&nbsp; 42.8% reduction &nbsp;•&nbsp; 717 B above the 1,000 B target</p>
+</section>
+
+<section class="panel">
+<h2>What this tells us</h2>
+<ul class="note">
+<li>The codec is <strong>lossless</strong> on this sample: every one of the 1,000 reconstructed samples matched exactly.</li>
+<li>Delta-of-delta performs better than first-order delta on this sample.</li>
+<li>The current two codecs do <strong>not</strong> satisfy the 1,000-byte-per-lead target.</li>
+<li>This bundled dataset is synthetic, so this result is a codec benchmark, not evidence of performance on real ADS1292R recordings.</li>
+<li>The next engineering step should be testing real ADS1292R 24-bit captures and evaluating stronger entropy/bit-packing schemes before firmware implementation.</li>
+</ul>
+</section>
+
+<section class="panel actions">
+<a class="button" href="./index.html">← Back to Compression Lab</a>
+<a class="button" href="./samples/sample_ecg_500hz_2s.csv">Open Sample CSV</a>
+</section>
+</main>
+</body>
+</html>
