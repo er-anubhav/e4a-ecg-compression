@@ -1,32 +1,36 @@
-# E4A ECG Compression
+# E4A ECG Compression Lab
 
-Lossless ECG compression for ADS1292R-based medical telemetry on nRF52840/Zephyr.
+A small browser-based experiment for testing whether actual ECG data can be losslessly compressed enough for the E4A medical telemetry design.
 
-## Project structure
+## What it does
 
-- `include/` — public compressor API
-- `src/` — compressor implementation
-- `zephyr/` — Zephyr/nRF52840 application scaffold
-- `tests/` — correctness and robustness tests
-- `benchmarks/` — compression and resource benchmarks
-- `docs/` — architecture and protocol notes
+1. Load a real ECG CSV/TXT/TSV file.
+2. Parse numeric samples in the browser.
+3. Compress using Delta + ZigZag Varint or Delta-of-Delta + ZigZag Varint.
+4. Decompress the byte stream.
+5. Compare every reconstructed sample against the original.
+6. Report sample count, raw 24-bit size, compressed size, reduction, exact reconstruction, and whether the 1,000-byte target was met.
+7. Plot original and reconstructed ECG.
 
-## Initial engineering target
+The ECG data stays in the browser; the app does not upload it.
 
-- 2 ECG channels
-- 24-bit ADS1292R samples
-- 500 Hz sampling
-- 2-second logical windows / 1000 samples per channel
-- Bit-exact lossless reconstruction
-- Approximately 1 KB compressed target per channel, to be validated with real recordings
+## Current experiment target
 
-## Development plan
+For 500 Hz ECG:
+- 2 seconds = 1,000 samples/lead
+- Raw ADS1292R sample = 24 bits = 3 bytes
+- Raw window = 3,000 bytes/lead
+- Target = <=1,000 bytes/lead
+- Required reduction = 66.7%
 
-1. Acquire representative ADS1292R data.
-2. Measure delta/delta-of-delta statistics.
-3. Freeze the binary format.
-4. Implement and benchmark the compressor.
-5. Add bit-exact tests and corruption handling.
-6. Integrate with Zephyr/nRF52840 and Thread/CoAP.
+The target is an experiment, not an assumption. Real ECG data must be measured.
 
-Compression ratio is not assumed until benchmarked against real ECG data.
+## Run
+
+Open index.html in a browser. No build system is required.
+
+For multi-column files, the prototype currently uses the first numeric value from each line. A dedicated channel selector will be added once the actual ADS1292R dataset format is fixed.
+
+## Important
+
+This is a research prototype, not a medical device codec. Lossless reconstruction must pass before any compression result is considered valid.
