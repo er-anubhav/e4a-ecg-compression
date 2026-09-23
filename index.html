@@ -5,33 +5,50 @@
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>E4A ECG Compression Lab</title>
 <style>
-:root{color-scheme:dark;--bg:#0b0f14;--panel:#111820;--border:#263240;--text:#e7edf5;--muted:#8d9aaa;--accent:#67b7ff;--good:#69d39a;--bad:#ff7d7d}
+:root{color-scheme:dark;--bg:#0b0f14;--panel:#111820;--border:#263240;--text:#e7edf5;--muted:#8d9aaa;--good:#69d39a;--bad:#ff7d7d;--accent:#67b7ff}
 *{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--text);font:14px system-ui,-apple-system,Segoe UI,sans-serif}
 main{max-width:1100px;margin:auto;padding:28px 18px}.top{display:flex;justify-content:space-between;gap:20px;align-items:end;margin-bottom:20px}h1{margin:0;font-size:25px}.sub{color:var(--muted);margin-top:5px}
 .panel{background:var(--panel);border:1px solid var(--border);border-radius:14px;padding:18px;margin-bottom:16px}
-.controls{display:grid;grid-template-columns:1.5fr 1fr 1fr auto;gap:12px;align-items:end}
+.controls{display:grid;grid-template-columns:1.6fr .9fr 1fr auto;gap:12px;align-items:end}
 label{display:block;color:var(--muted);font-size:12px;margin-bottom:6px}input,select,button{width:100%;border:1px solid var(--border);border-radius:9px;background:#0c1219;color:var(--text);padding:10px}
 button{cursor:pointer;background:#182536}button:hover{border-color:#45627e}button.primary{background:#1b5f91;border-color:#2d7eb9}
 .metrics{display:grid;grid-template-columns:repeat(5,1fr);gap:10px}.metric{border:1px solid var(--border);border-radius:10px;padding:12px}.metric b{display:block;font-size:19px;margin-top:3px}.metric span{color:var(--muted);font-size:11px}
 canvas{width:100%;height:300px;background:#0a0f14;border-radius:10px;border:1px solid var(--border)}
 .status{padding:10px;border-radius:9px;background:#0c1219;color:var(--muted)}.ok{color:var(--good)}.bad{color:var(--bad)}
-.small{font-size:12px;color:var(--muted);line-height:1.5}.drop{border:1px dashed #405367;text-align:center;padding:18px;border-radius:10px;margin-top:10px}
-@media(max-width:800px){.controls,.metrics{grid-template-columns:1fr 1fr}.top{display:block}}
+.small{font-size:12px;color:var(--muted);line-height:1.5}.drop{border:1px dashed #405367;text-align:center;padding:24px;border-radius:10px;margin-top:12px;transition:.15s}.drop.active{border-color:var(--accent);background:#0e1a26}.drop strong{display:block;color:var(--text);font-size:15px;margin-bottom:5px}
+.filemeta{display:flex;gap:10px;flex-wrap:wrap;margin-top:10px}.pill{background:#0c1219;border:1px solid var(--border);border-radius:999px;padding:6px 9px;color:var(--muted);font-size:12px}
+.detect{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:12px}.detect .box{border:1px solid var(--border);border-radius:10px;padding:12px}.detect b{font-size:14px}.hint{color:var(--muted);font-size:12px;margin-top:4px}
+@media(max-width:800px){.controls,.metrics,.detect{grid-template-columns:1fr 1fr}.top{display:block}}@media(max-width:560px){.controls,.metrics,.detect{grid-template-columns:1fr}}
 </style>
 </head>
 <body>
 <main>
-<div class="top"><div><h1>E4A ECG Compression Lab</h1><div class="sub">Client-side lossless compression experiment for real ECG data</div></div><div class="small">No data is uploaded.</div></div>
+<div class="top">
+  <div><h1>E4A ECG Compression Lab</h1><div class="sub">Client-side lossless compression experiment for real ECG data</div></div>
+  <div class="small">No ECG data is uploaded.</div>
+</div>
 
 <section class="panel">
-<div class="controls">
-<div><label>ECG data file</label><input id="file" type="file" accept=".csv,.txt,.tsv"></div>
-<div><label>Sampling rate (Hz)</label><input id="fs" type="number" value="500" min="1"></div>
-<div><label>Compression mode</label><select id="mode"><option value="delta">Delta + ZigZag Varint</option><option value="dod">Delta-of-Delta + ZigZag Varint</option></select></div>
-<button class="primary" id="run">Compress & Decompress</button>
-</div>
-<div class="drop" id="drop">Drop CSV/TXT/TSV here, or choose a file above.</div>
-<p class="small">Input: one ECG sample per line, or CSV/TSV with numeric values. For multi-column ECG files, the app uses the first numeric column by default. Values are treated as signed integer ADC samples; decimal values are supported and scaled internally.</p>
+  <div class="controls">
+    <div><label>ECG data file</label><input id="file" type="file" accept=".csv,.txt,.tsv,text/csv,text/plain"></div>
+    <div><label>Sampling rate (Hz) — optional</label><input id="fs" type="number" placeholder="Auto-detect / 500" min="1" step="any"></div>
+    <div><label>Compression mode</label><select id="mode"><option value="delta">Delta + ZigZag Varint</option><option value="dod">Delta-of-Delta + ZigZag Varint</option></select></div>
+    <button class="primary" id="run">Compress & Decompress</button>
+  </div>
+
+  <div class="drop" id="drop">
+    <strong>Drop CSV, TXT, or TSV ECG file here</strong>
+    <span>or choose a file above</span>
+  </div>
+
+  <div class="filemeta" id="filemeta"></div>
+
+  <div class="detect">
+    <div class="box"><label>Detected sample column</label><b id="sampleCol">—</b><div class="hint" id="sampleHint">Load a file to inspect its columns.</div></div>
+    <div class="box"><label>Sampling rate</label><b id="detectedFs">—</b><div class="hint" id="fsHint">Enter it manually when known; otherwise the app will try timestamp detection and fall back to 500 Hz.</div></div>
+  </div>
+
+  <p class="small">The parser detects CSV, TSV, or whitespace-delimited text, recognizes common ECG/sample column names, and scores numeric columns when headers are absent. If a timestamp/time column is present, its spacing is used to estimate sampling rate unless you enter one manually.</p>
 </section>
 
 <section class="panel">
@@ -51,51 +68,168 @@ canvas{width:100%;height:300px;background:#0a0f14;border-radius:10px;border:1px 
 <section class="panel">
 <label>Original vs reconstructed ECG</label>
 <canvas id="plot" width="1050" height="300"></canvas>
-<p class="small">The plot is sampled down for display only. The exact-match test compares every reconstructed integer sample with the original encoded sample.</p>
+<p class="small">The plot is sampled down for display only. The exact-match test compares every reconstructed encoded sample with the original encoded sample.</p>
 </section>
 </main>
 
 <script>
 const $=id=>document.getElementById(id);
-let textData="";
-$("file").addEventListener("change",e=>e.target.files[0]&&readFile(e.target.files[0]));
-["dragover","dragenter"].forEach(x=>$("drop").addEventListener(x,e=>{e.preventDefault()}));
-$("drop").addEventListener("drop",e=>{e.preventDefault();const f=e.dataTransfer.files[0];if(f)readFile(f)});
-function readFile(f){const r=new FileReader();r.onload=()=>{textData=r.result; $("drop").textContent=f.name+" loaded ("+textData.length.toLocaleString()+" chars)"};r.readAsText(f)}
+let textData="", parsedData=null, selectedFile=null;
 
-function parseSamples(s){
-  const lines=s.split(/\r?\n/);
-  const out=[];
-  for(const line of lines){
-    const parts=line.trim().split(/[\t,; ]+/);
-    for(const p of parts){
-      const v=Number(p);
-      if(Number.isFinite(v)){out.push(v);break}
+function setStatus(msg,cls=""){ $("status").innerHTML=cls ? "<span class='"+cls+"'>"+msg+"</span>" : msg; }
+
+function allowedFile(f){
+  const name=f.name.toLowerCase();
+  return name.endsWith(".csv")||name.endsWith(".txt")||name.endsWith(".tsv")||["text/csv","text/plain","text/tab-separated-values"].includes(f.type);
+}
+
+function readFile(f){
+  if(!allowedFile(f)){setStatus("Please choose a CSV, TXT, or TSV file.","bad");return}
+  selectedFile=f;
+  const r=new FileReader();
+  r.onload=()=>{
+    textData=r.result;
+    try{
+      parsedData=parseECG(textData,f.name);
+      $("filemeta").innerHTML="<span class='pill'>"+escapeHtml(f.name)+"</span><span class='pill'>"+parsedData.rows.toLocaleString()+" rows</span><span class='pill'>"+parsedData.columns.length+" columns</span>";
+      $("sampleCol").textContent=parsedData.sampleName;
+      $("sampleHint").textContent=parsedData.sampleIndex>=0 ? "Detected from header/numeric-column scoring." : "No sample column detected.";
+      $("detectedFs").textContent=parsedData.fs ? parsedData.fs.toFixed(2)+" Hz" : "500 Hz fallback";
+      $("fsHint").textContent=parsedData.fsSource;
+      $("drop").innerHTML="<strong>"+escapeHtml(f.name)+"</strong><span>Loaded successfully — ready to compress</span>";
+      setStatus("File parsed. Review the detected sample column and sampling rate, then run the compression test.");
+    }catch(e){parsedData=null;setStatus(e.message,"bad")}
+  };
+  r.onerror=()=>setStatus("Could not read the selected file.","bad");
+  r.readAsText(f);
+}
+
+$("file").addEventListener("change",e=>e.target.files[0]&&readFile(e.target.files[0]));
+
+["dragover","dragenter"].forEach(ev=>$("drop").addEventListener(ev,e=>{
+  e.preventDefault();e.stopPropagation();$("drop").classList.add("active");
+}));
+["dragleave","drop"].forEach(ev=>$("drop").addEventListener(ev,e=>{
+  e.preventDefault();e.stopPropagation();$("drop").classList.remove("active");
+}));
+$("drop").addEventListener("drop",e=>{
+  const files=e.dataTransfer.files;
+  if(files.length) readFile(files[0]);
+});
+
+function escapeHtml(s){return String(s).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]))}
+
+function detectDelimiter(lines){
+  const candidates=[",","\t",";","|"];
+  let best={d:null,score:-1};
+  for(const d of candidates){
+    const counts=lines.slice(0,Math.min(lines.length,20)).map(x=>x.split(d).length);
+    const multi=counts.filter(n=>n>1);
+    if(multi.length){
+      const score=multi.length*100+Math.max(...multi);
+      if(score>best.score)best={d,score};
     }
   }
-  if(!out.length) throw Error("No numeric ECG samples found.");
-  // Preserve decimal data exactly by scaling to the smallest practical decimal precision.
-  let scale=1;
-  for(const v of out.slice(0,10000)){
-    const q=String(v).split(".")[1];
-    if(q) scale=Math.max(scale,10**Math.min(q.length,6));
-  }
-  const ints=out.map(v=>Math.round(v*scale));
-  return {ints,scale};
+  if(best.d)return best.d;
+  return /\s+/.test(lines[0]) ? /\s+/ : null;
 }
+
+function splitLine(line,delimiter){
+  if(delimiter===null)return [line.trim()];
+  if(delimiter instanceof RegExp)return line.trim().split(delimiter);
+  return line.split(delimiter).map(x=>x.trim());
+}
+
+function normalizeName(s){return String(s||"").toLowerCase().replace(/[^a-z0-9]+/g,"")}
+
+function isNumeric(v){
+  if(v===null||v===undefined||String(v).trim()==="")return false;
+  const n=Number(String(v).trim());
+  return Number.isFinite(n);
+}
+
+function parseECG(s,filename){
+  const lines=s.split(/\r?\n/).filter(x=>x.trim().length);
+  if(!lines.length)throw Error("The file is empty.");
+  const delimiter=detectDelimiter(lines);
+  const first=splitLine(lines[0],delimiter);
+  const looksHeader=first.some(v=>!isNumeric(v));
+  const headers=looksHeader ? first : first.map((_,i)=>"Column "+(i+1));
+  const dataLines=looksHeader ? lines.slice(1) : lines;
+  const rows=dataLines.map(line=>splitLine(line,delimiter)).filter(r=>r.length);
+  if(!rows.length)throw Error("No data rows found.");
+  const width=Math.max(headers.length,...rows.map(r=>r.length));
+  while(headers.length<width)headers.push("Column "+(headers.length+1));
+
+  const stats=headers.map((name,idx)=>{
+    const vals=rows.map(r=>r[idx]).filter(isNumeric).map(Number);
+    const ratio=vals.length/rows.length;
+    const unique=new Set(vals.slice(0,10000)).size;
+    const variance=vals.length>1 ? (()=>{const m=vals.reduce((a,b)=>a+b,0)/vals.length;return vals.reduce((a,b)=>a+(b-m)*(b-m),0)/vals.length})() : 0;
+    const norm=normalizeName(name);
+    let score=ratio*100;
+    if(/(^|)(ecg|signal|sample|value|lead|channel|voltage|amplitude|raw|adc)(|$)/.test(norm))score+=35;
+    if(/(^|)(time|timestamp|date|datetime|index|id|counter)(|$)/.test(norm))score-=70;
+    if(unique<=1)score-=30;
+    if(variance===0)score-=20;
+    return {idx,name,vals,ratio,score};
+  });
+
+  const sampleCandidates=stats.filter(x=>x.ratio>=0.7).sort((a,b)=>b.score-a.score);
+  if(!sampleCandidates.length)throw Error("Could not find a numeric ECG/sample column.");
+  const sample=sampleCandidates[0];
+
+  let time=null;
+  const timeCandidates=stats.filter(x=>x.ratio>=0.7 && /(^|)(time|timestamp|datetime|seconds|sec|ms|millis)(|$)/.test(normalizeName(x.name))).sort((a,b)=>b.ratio-a.ratio);
+  if(timeCandidates.length)time=timeCandidates[0];
+
+  let fsManual=Number($("fs").value);
+  let fs=Number.isFinite(fsManual)&&fsManual>0 ? fsManual : null;
+  let fsSource=fs ? "Using the manually entered sampling rate." : "";
+  if(!fs && time){
+    const tv=time.vals.slice(0,Math.min(time.vals.length,5000));
+    const diffs=[];
+    for(let i=1;i<tv.length;i++){const d=tv[i]-tv[i-1];if(d>0&&Number.isFinite(d))diffs.push(d)}
+    if(diffs.length){
+      diffs.sort((a,b)=>a-b);
+      const med=diffs[Math.floor(diffs.length/2)];
+      const scale=(Math.abs(med)>=1?1:1000);
+      const candidate=scale/med;
+      if(candidate>1&&candidate<10000){fs=candidate;fsSource="Estimated from the detected time/timestamp column."}
+    }
+  }
+  if(!fs){fs=500;fsSource="No sampling rate supplied or detected; using 500 Hz fallback."}
+
+  let scale=1;
+  const values=sample.vals;
+  for(const v of values.slice(0,10000)){
+    const q=String(v).split(".")[1];
+    if(q)scale=Math.max(scale,10**Math.min(q.length,6));
+  }
+  const ints=values.map(v=>Math.round(v*scale));
+  if(ints.length<2)throw Error("The detected sample column has fewer than two numeric samples.");
+
+  return {ints,scale,rows:rows.length,columns:headers,sampleIndex:sample.idx,sampleName:sample.name,fs,fsSource};
+}
+
+$("fs").addEventListener("input",()=>{
+  if(!parsedData)return;
+  const manual=Number($("fs").value);
+  if(Number.isFinite(manual)&&manual>0){parsedData.fs=manual;parsedData.fsSource="Using the manually entered sampling rate.";$("detectedFs").textContent=manual.toFixed(2)+" Hz";$("fsHint").textContent=parsedData.fsSource}
+});
+
 function zig(n){return n>=0?2*n:(-2*n-1)}
 function unzig(n){return (n&1)?-((n+1)/2):(n/2)}
 function putVarint(n,a){n=BigInt(n);while(n>=128n){a.push(Number((n&127n)|128n));n>>=7n}a.push(Number(n))}
-function getVarint(a,i){let n=0n,s=0n;while(i.p<a.length){const b=BigInt(a[i.p++]);n|=(b&127n)<<BigInt(s);if(!(b&128n))return Number(n);s+=7;if(s>63)throw Error("Invalid varint")}throw Error("Truncated varint")}
+function getVarint(a,i){let n=0n,s=0;while(i.p<a.length){const b=BigInt(a[i.p++]);n|=(b&127n)<<BigInt(s);if(!(b&128n))return Number(n);s+=7;if(s>63)throw Error("Invalid varint")}throw Error("Truncated varint")}
+
 function compress(x,mode){
   if(!x.length)return new Uint8Array();
   const a=[];
-  // Header: magic, version, mode, count (uint32 LE), scale (uint32 LE)
   a.push(0x45,0x34,0x41,0x01,mode==="dod"?2:1);
-  let n=x.length; for(let j=0;j<4;j++){a.push(n&255);n>>>=8}
-  const scale=window._scale||1; n=scale; for(let j=0;j<4;j++){a.push(n&255);n>>>=8}
-  // Store first sample and, for DoD, first delta.
-  const first=x[0]; putVarint(zig(first),a);
+  let n=x.length;for(let j=0;j<4;j++){a.push(n&255);n>>>=8}
+  const scale=window._scale||1;n=scale;for(let j=0;j<4;j++){a.push(n&255);n>>>=8}
+  putVarint(zig(x[0]),a);
   if(mode==="delta"){
     for(let i=1;i<x.length;i++)putVarint(zig(x[i]-x[i-1]),a);
   }else{
@@ -105,26 +239,26 @@ function compress(x,mode){
   }
   return Uint8Array.from(a);
 }
+
 function decompress(buf){
   if(buf[0]!==0x45||buf[1]!==0x34||buf[2]!==0x41)throw Error("Invalid compressed stream");
   const mode=buf[4]===2?"dod":"delta";
   const count=buf[5]|buf[6]<<8|buf[7]<<16|buf[8]*16777216;
   const scale=buf[9]|buf[10]<<8|buf[11]<<16|buf[12]*16777216;
   const i={p:13},x=[];
-  if(!count)return {x,scale,mode};
+  if(!count)return{x,scale,mode};
   x.push(unzig(getVarint(buf,i)));
   if(count>1){
-    let d=unzig(getVarint(buf,i)); x.push(x[0]+d);
-    if(mode==="delta"){
-      for(let k=2;k<count;k++){d=unzig(getVarint(buf,i));x.push(x[k-1]+d)}
-    }else{
-      for(let k=2;k<count;k++){const dd=unzig(getVarint(buf,i));d+=dd;x.push(x[k-1]+d)}
-    }
+    let d=unzig(getVarint(buf,i));x.push(x[0]+d);
+    if(mode==="delta"){for(let k=2;k<count;k++){d=unzig(getVarint(buf,i));x.push(x[k-1]+d)}}
+    else{for(let k=2;k<count;k++){const dd=unzig(getVarint(buf,i));d+=dd;x.push(x[k-1]+d)}}
   }
-  return {x,scale,mode};
+  return{x,scale,mode};
 }
+
 function bytesForRaw(x){return x.length*3}
 function fmtBytes(n){return n<1024?n+" B":(n/1024).toFixed(2)+" KB"}
+
 function plot(a,b){
   const c=$("plot"),ctx=c.getContext("2d"),W=c.width,H=c.height;ctx.clearRect(0,0,W,H);
   const vals=a.concat(b),min=Math.min(...vals),max=Math.max(...vals),range=max-min||1;
@@ -138,10 +272,11 @@ function plot(a,b){
   }
   line(a,"#67b7ff");line(b,"#69d39a");
 }
+
 $("run").onclick=()=>{
   try{
-    if(!textData)throw Error("Choose an ECG data file first.");
-    const parsed=parseSamples(textData),x=parsed.ints;window._scale=parsed.scale;
+    if(!parsedData)throw Error("Choose a valid ECG CSV, TXT, or TSV file first.");
+    const x=parsedData.ints;window._scale=parsedData.scale;
     const mode=$("mode").value,buf=compress(x,mode),out=decompress(buf).x;
     const exact=x.length===out.length&&x.every((v,i)=>v===out[i]);
     const raw=bytesForRaw(x),cb=buf.length;
@@ -151,9 +286,10 @@ $("run").onclick=()=>{
     $("reduction").textContent=((1-cb/raw)*100).toFixed(1)+"%";
     $("exact").textContent=exact?"PASS":"FAIL";
     $("exact").className=exact?"ok":"bad";
-    $("status").innerHTML="<span class='"+(exact?"ok":"bad")+"'>"+(exact?"Lossless reconstruction verified for every sample.":"Reconstruction mismatch — do not use this codec.")+"</span> Mode: "+mode+". Target ≤1,000 B per 1,000-sample lead: "+(cb<=1000?"MET":"NOT MET");
+    const target=cb<=1000;
+    setStatus((exact?"Lossless reconstruction verified for every sample.":"Reconstruction mismatch — do not use this codec.")+" Mode: "+mode+". Target <=1,000 B per 1,000-sample lead: "+(target?"MET":"NOT MET")+". Sampling rate: "+parsedData.fs.toFixed(2)+" Hz.",exact?"ok":"bad");
     plot(x,out);
-  }catch(e){$("status").innerHTML="<span class='bad'>"+e.message.replaceAll("<","&lt;")+"</span>"}
+  }catch(e){setStatus(e.message,"bad")}
 };
 </script>
 </body>
