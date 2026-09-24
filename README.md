@@ -1,252 +1,230 @@
-# E4A ECG Lossless Compression — R&D Guide
+# E4A ECG Compression — Plain English Guide
 
-[![Lossless](https://img.shields.io/badge/Reconstruction-100%25%20Exact%20Match-brightgreen)](#6-did-we-lose-any-data-exact-lossless-check)
-[![Target Hit Rate](https://img.shields.io/badge/Target%20Hit%20Rate-100%25%20(Lead%20I%20%26%20II)-blue)](#5-how-well-does-it-work-benchmark-results)
-[![MCU Target](https://img.shields.io/badge/MCU%20Target-Nordic%20nRF52840-orange)](#8-next-steps-bringing-it-to-hardware)
+[![Lossless](https://img.shields.io/badge/Data%20Loss-0%25%20(Perfect%20Match)-brightgreen)](#5-did-we-lose-any-heartbeat-data)
+[![Goal Met](https://img.shields.io/badge/Goal%20Met-100%25%20of%20Windows-blue)](#4-how-well-did-it-work-results)
+[![Target Chip](https://img.shields.io/badge/Runs%20On-Nordic%20nRF52840-orange)](#7-can-a-small-wearable-chip-run-this)
 
-This document explains our research and testing to losslessly shrink ECG data for the **E4A wearable health monitor**.
-
----
-
-## 1. The Problem We Solved
-
-The E4A chest patch reads heart signals using a 24-bit Texas Instruments **ADS1292R** sensor. 
-
-Sending continuous, raw heart data over Bluetooth / wireless drains the battery quickly and clogs the network. We needed to shrink the data stream before sending it.
-
-```
-+------------------------------------------------------------------------------------+
-|  THE RAW DATA STREAM (500 Hz, 24-bit):                                              |
-|  • Each second:  500 samples × 3 bytes = 1,500 bytes                              |
-|  • Every 2 sec:  1,000 samples × 3 bytes = 3,000 raw bytes per ECG lead            |
-|                                                                                    |
-|  OUR TARGET:                                                                       |
-|  • Goal:         1,000 bytes or less per 2-second window (at least 66.7% smaller)  |
-|  • Rule:         100% lossless. Not a single heartbeat sample can be distorted     |
-+------------------------------------------------------------------------------------+
-```
+A simple, complete explanation of our research into shrinking heart signals (ECG) for the **E4A smart chest patch**.
 
 ---
 
-## 2. What We Tried (Our R&D Journey)
+## 1. Why Do We Need This?
 
-We tested four approaches on real ECG data, moving from simple ideas to our final solution:
+The E4A chest patch monitors a patient's heart 24/7. It records heartbeat data using a medical sensor (Texas Instruments ADS1292R) and sends it over Bluetooth to a mobile phone or doctor's tablet.
 
+### The Problem
+* The sensor takes **500 readings every second**.
+* Every 2 seconds, that creates **3,000 bytes** of data.
+* Sending 3,000 raw bytes every 2 seconds drains the patch's small battery very quickly and clogs the wireless connection.
+
+### The Goal
 ```
-Result on 2-second window of Lead I ECG (Raw size: 3,000 bytes):
-  1. Delta Encoding:                    1,045 bytes  ❌ (Missed the 1,000 B goal)
-  2. Delta-of-Delta:                    1,020 bytes  ❌ (Still too large)
-  3. Fixed LPC-4 + Bit-Packing:           819 bytes  ✅ (Passed, but spiked on R-peaks)
-  4. Adaptive LPC-4 + Heartbeat Backup:   791 bytes  ✅ (Best: 100% under 1,000 B)
+┌────────────────────────────────────────────────────────────────────────┐
+│                        THE 2-SECOND CHALLENGE                          │
+│                                                                        │
+│   Raw Data Size:      3,000 Bytes                                      │
+│   Target Size:        1,000 Bytes or less (shrink by 67% or more)      │
+│   Golden Rule:        100% Lossless (Zero data loss. Not a single      │
+│                       heartbeat detail can be changed or blurred)      │
+└────────────────────────────────────────────────────────────────────────┘
 ```
 
-![Technique Comparison](docs/figures/technique_comparison.png)
-
-### Step 1: Delta Encoding (Differences)
-* **The Idea:** Heartbeats change gradually. Instead of storing full numbers like `1000, 1002, 1005, 1007`, just store the differences: `1000, +2, +3, +2`.
-* **What We Learned:** The differences are smaller numbers, but standard variable-byte storage still wasted too much space. It averaged **1,045 bytes**, missing our 1,000-byte goal.
-
-### Step 2: Delta-of-Delta (Difference of Differences)
-* **The Idea:** Instead of storing the difference, store how much the difference changed from the last step.
-* **What We Learned:** It smoothed out slow breathing movements, but made small sensor noise worse. It averaged **1,020 bytes**, which was still over budget.
-
-### Step 3: LPC-4 (Smart Mathematical Prediction)
-* **The Idea:** Instead of just looking at the single previous sample, use the **last 4 samples** to predict what the next sample should be.
-* **How It Works:**
-  ```
-  Last 4 Samples ──► [ x(n-1), x(n-2), x(n-3), x(n-4) ]
-                              │
-                              ▼
-                     ┌──────────────────┐
-                     │  LPC-4 Predictor │
-                     └──────────────────┘
-                              │
-                              ▼
-                       Predicted Point
-                              │
-            Actual Point ──► (Actual - Predicted)
-                              │
-                              ▼
-                        Tiny Leftover Error
-  ```
-* **What We Learned:** The predictions were remarkably accurate. Most leftover errors were very close to 0.
-
-### Step 4: Better Packing (ZigZag + Golomb-Rice)
-* **The Idea:** Prediction errors are positive or negative numbers around zero (`-1, +2, 0, -2`).
-  1. **ZigZag:** Re-maps them to small positive numbers: `0 -> 0`, `-1 -> 1`, `+1 -> 2`, `-2 -> 3`.
-  2. **Golomb-Rice:** Instead of spending an entire 8-bit byte on small numbers like `1` or `2`, pack them into just 2 or 3 bits.
-* **What We Learned:** This cut our window size down to **819 bytes**—comfortably below the 1,000-byte target!
-
-### Step 5: Heartbeat Spike Backup (Transient Delta Mode)
-* **The Idea:** During the sharp, tall peak of a heartbeat (the R-peak), the mathematical LPC formula can overreact and overshoot.
-* **The Fix:** We divide the data into short chunks of 32 samples. If a sharp spike is detected where simple differences work better than LPC, the compressor automatically switches to simple differences for that short chunk.
-* **What We Learned:** This eliminated overshoot spikes and saved an extra **30 bytes per window**, bringing Lead I down to **791 bytes**.
+> **What does "Lossless" mean?**  
+> Think of it like a `.zip` file on your computer. When you unzip it, your document is 100% intact. We cannot blur or smooth out the heart signal, because a doctor needs to see every exact peak and dip to spot heart conditions.
 
 ---
 
-## 3. The Final Compression Pipeline
+## 2. The 3 Simple Ideas Behind Our Solution
 
-Our final technique is: **Adaptive LPC-4 + Delta Fallback + ZigZag + Golomb-Rice**.
+Instead of sending the raw numbers directly, our method uses three common-sense ideas:
 
-```mermaid
-flowchart TD
-    A["Raw 24-bit ECG<br>(1,000 samples = 3,000 bytes)"] --> B["Predict Next Sample with LPC-4<br>(uses previous 4 samples)"]
-    B --> C["Check Leftover Prediction Error"]
-    C --> D{"Sharp Heartbeat Spike?"}
-    D -- Yes --> E["Use Simple Difference for this Chunk"]
-    D -- No --> F["Keep LPC Prediction"]
-    E --> G["ZigZag Mapping<br>(turn negative numbers into positive)"]
-    F --> G
-    G --> H["Golomb-Rice Bit Packing<br>(pack small numbers into 2-4 bits)"]
-    H --> I["Compressed Telemetry Packet<br>(Average: ~791 to 857 bytes)"]
+```
+                  HOW WE SHRINK 3,000 BYTES TO ~791 BYTES
+
+  Raw ECG Data
+  (3,000 bytes)
+       │
+       ▼
+ ┌───────────┐    Idea 1: Smart Guessing
+ │ Predictor │ ── Look at the last 4 readings and guess what comes next.
+ └─────┬─────┘    Instead of sending the big number, only send the tiny error.
+       │
+       ▼
+ ┌───────────┐    Idea 2: Spike Safety Switch
+ │ Spike     │ ── Heartbeats have sharp, sudden spikes (R-peaks).
+ │ Detector  │    If a sharp spike makes guessing tricky, temporarily switch
+ └─────┬─────┘    to simple step-by-step changes for that small piece.
+       │
+       ▼
+ ┌───────────┐    Idea 3: Tight Bit-Packing
+ │ Bit-Packer│ ── Tiny numbers (like 0, 1, -1, 2) don't need a whole 8-bit byte.
+ └─────┬─────┘    Pack them tightly using only 2 or 3 bits each.
+       │
+       ▼
+  Compressed Packet
+  (~791 to 857 bytes)  ──► 100% under our 1,000-byte budget!
 ```
 
-1. **Window Size:** Takes 1,000 samples at a time (exactly 2.0 seconds at 500 Hz).
-2. **Predictor:** Runs LPC-4 using simple integer math (no floating point decimals).
-3. **Spike Protection:** Uses simple differences during rapid R-peak heart spikes.
-4. **Bit-Packer:** Squeezes numbers into fractional bits using Golomb-Rice.
+### Idea 1: Smart Guessing (Prediction)
+Heart signals are smooth waves. If the last few readings were `100, 102, 104, 106`, the next one is almost certainly around `108`.  
+* If the real reading turns out to be `109`, we don't save `109`.
+* We only save the tiny leftover difference: **`+1`**.
+* Tiny numbers are vastly easier to shrink than giant sensor numbers.
+
+### Idea 2: Spike Safety Switch (For Fast Heart Spikes)
+During the tall, rapid spike of a heartbeat (called an R-peak), guessing can temporarily overshoot.
+* We divide the signal into small groups of 32 points.
+* If a sharp heartbeat spike occurs, the system automatically switches to simple step-by-step differences for that short group.
+* Once the spike passes, it switches back to smart guessing.
+
+### Idea 3: Tight Bit-Packing (Golomb-Rice)
+Normal computer storage gives every number at least 8 bits (1 byte) or 16 bits (2 bytes).
+* But almost all our leftover numbers are tiny: `0, +1, -1, +2`.
+* First, we use **ZigZag** to turn negative numbers into positive numbers (`0 → 0`, `-1 → 1`, `+1 → 2`, `-2 → 3`).
+* Then, our bit-packer (called **Golomb-Rice**) squeezes small numbers into just **2 or 3 bits** instead of wasting an entire 8-bit byte.
 
 ---
 
-## 4. Why We Picked This Approach
+## 3. What Other Methods Did We Try?
 
-* **Huge Safety Margin:** Leaves a safety buffer of **140 to 210 bytes** below our 1,000-byte ceiling.
-* **Zero Math Guesswork:** It is 100% deterministic and completely lossless.
-* **Made for Small Chips:** Uses standard addition, multiplication, and bit-shifts (`>> 8`). No division or decimals needed during decompression.
-* **Tiny Memory Footprint:** Needs less than **3 KB of RAM** total. Fits easily on small microcontrollers like the Nordic nRF52840.
-* **No AI / Neural Network Overhead:** Pure algorithmic code with guaranteed speed and battery savings.
+Before landing on our final solution, we tested several common techniques on real heart data to see what worked best:
+
+```
+  Method Tested                          Size (Lead I)    Did it beat 1,000 B?
+  ─────────────────────────────────────────────────────────────────────────────
+  1. Simple Differences (Delta)          1,045 bytes      ❌ No (Too big)
+  2. Difference of Differences           1,020 bytes      ❌ No (Noise made it worse)
+  3. Fixed Prediction (LPC-4)              819 bytes      ✅ Yes (Good, but spiked)
+  4. Final: Prediction + Spike Switch      791 bytes      ✅ Best (100% under budget)
+```
+
+![Comparison of Methods](docs/figures/technique_comparison.png)
+
+* **Simple Differences (1,045 B):** Only looked at the 1 previous sample. Not smart enough to beat our 1,000-byte target.
+* **Difference of Differences (1,020 B):** Handled breathing drift well, but made tiny electrical sensor noise worse.
+* **Fixed Prediction (819 B):** Looked at the previous 4 samples. Cut the size down a lot, but occasionally had big spikes during rapid heartbeats.
+* **Final Solution (791 B):** Added our automatic spike safety switch. It stays small, smooth, and well below 1,000 bytes on every single test window.
 
 ---
 
-## 5. How Well Does It Work? (Benchmark Results)
+## 4. How Well Did It Work? (Results)
 
-> [!NOTE]
-> **Important Note on the Test Dataset:**  
-> We ran our tests on a real-world Shimmer3 ECG recording ([SampleECG_Session1_Shimmer_B64E_Calibrated_SD.csv](Shimmer3_ECG_Sample_Data/SampleECG_Session1_Shimmer_B64E_Calibrated_SD.csv)). The recording stores data in millivolts (mV) rather than raw register bytes. We converted the millivolts back to the sensor's whole integer counts for testing. These results prove the compression algorithm works on real ECG signals, but final confirmation on the physical E4A circuit board is still to come.
+We tested the algorithm on real-world ECG recordings from a Shimmer3 medical device (60 consecutive 2-second windows = 2 minutes of real heart data).
 
-### 500-Hz Simulation (2-Second Windows = 1,000 Samples)
-This evaluates the exact planned E4A setup: 1,000 samples at 500 Hz (2.0 seconds per window). The uncompressed size is 3,000 bytes per window.
+### Test Summary (At 500 Hz, 2 Seconds per Window)
 
-| Channel | What It Measures | Average Size | Worst Window | Target Hit Rate (≤ 1,000 B) | Reduction | Result |
-| :--- | :--- | :--- | :--- | :--- | :--- | :--- |
-| **Lead I (LA-RA)** | Main Heartbeat Lead | **791 Bytes** | 817 Bytes | **100% (60 of 60 windows)** | **73.6%** | **PASS** |
-| **Lead II (LL-RA)** | Secondary Heartbeat Lead | **857 Bytes** | 925 Bytes | **100% (60 of 60 windows)** | **71.5%** | **PASS** |
-| **RESP** | Chest Breathing Movement | **798 Bytes** | 821 Bytes | **100% (60 of 60 windows)** | **73.4%** | **PASS** |
-| **Vx-RL** | Extra Chest Lead | **1,331 Bytes** | 1,358 Bytes | **0% (0 of 60 windows)** | **55.6%** | **FAILS BUDGET** |
+| Signal / Channel | What It Measures | Raw Size | Compressed Average | Worst Window | Under 1,000 B? | Shrinkage |
+| :--- | :--- | :--- | :--- | :--- | :---: | :--- |
+| **Lead I (LA-RA)** | Main Heartbeat Signal | 3,000 B | **791 Bytes** | 817 Bytes | **100% (60 of 60)** | **73.6% smaller** |
+| **Lead II (LL-RA)** | Second Heartbeat Signal | 3,000 B | **857 Bytes** | 925 Bytes | **100% (60 of 60)** | **71.5% smaller** |
+| **RESP** | Chest Breathing Movement | 3,000 B | **798 Bytes** | 821 Bytes | **100% (60 of 60)** | **73.4% smaller** |
+| **Vx-RL** | Extra Chest Lead | 3,000 B | **1,331 Bytes** | 1,358 Bytes | **0% (Failed)** | **55.6% smaller** |
 
 <p align="center">
-  <img src="docs/figures/compression_by_channel.png" width="48%" />
-  <img src="docs/figures/compression_reduction.png" width="48%" />
+  <img src="docs/figures/compression_by_channel.png" width="48%" alt="Compressed sizes by channel" />
+  <img src="docs/figures/compression_reduction.png" width="48%" alt="Percentage reduction" />
 </p>
 
-### Window Distribution (Lead I & Lead II)
-Every single window for Lead I and Lead II passed the 1,000-byte target. Even the single worst window in Lead II (which had a huge 56 mV sensor glitch) stayed under budget at 925 bytes.
+### Key Takeaways
+1. **Lead I & Lead II Passed Every Single Time:** All 60 windows beat the 1,000-byte limit. We have a comfortable safety cushion of **140 to 210 unused bytes**.
+2. **Even Glitches Stayed Under Budget:** In Lead II, there was a sudden 56 mV sensor glitch in window #41. Even with that extreme jump, it only reached 925 bytes—still well under our 1,000-byte ceiling!
+3. **Why did the chest lead (Vx-RL) fail?** In this specific test recording, the chest wire had 9 times more electrical background noise than the other leads. Because lossless compression is forbidden from throwing away data, it had to faithfully store all the random static.
 
 <p align="center">
-  <img src="docs/figures/window_distribution.png" width="70%" />
-</p>
-
-### Why Did the Chest Lead (Vx-RL) Fail?
-In this dataset, the chest lead (Vx-RL) had **9 times more sample-to-sample noise** than Lead I. Because lossless compression cannot throw away random noise, it required ~1,331 bytes. For future multi-lead designs using chest leads, analog hardware filtering will be needed first.
-
----
-
-## 6. Did We Lose Any Data? (Exact Lossless Check)
-
-"Lossless" means that when you decompress the file, every single sample is **100% identical** to what came out of the sensor.
-
-```
-Original Sensor Numbers:     [ 120,  125,  134,  140, ... ]
-                                          │
-                                          ▼
-                                   [ Compression ]
-                                          │
-                                          ▼
-                                  Compressed Packet
-                                          │
-                                          ▼
-                                  [ Decompression ]
-                                          │
-                                          ▼
-Reconstructed Numbers:       [ 120,  125,  134,  140, ... ]
-                                          │
-                                          ▼
-Comparison:                  Identical! (0 errors, 0 mismatches)
-```
-
-We verified all **120,798 samples** in the dataset:
-* **Total mismatches:** 0
-* **Maximum error:** 0.0000
-* **Result:** **100% BIT-FOR-BIT LOSSLESS PASS**
-
-<p align="center">
-  <img src="docs/figures/original_vs_reconstructed.png" width="80%" /><br>
-  <img src="docs/figures/reconstruction_error.png" width="80%" />
+  <img src="docs/figures/window_distribution.png" width="70%" alt="Window size distribution" />
 </p>
 
 ---
 
-## 7. Adding Error Checking (CRC Checksum)
+## 5. Did We Lose Any Heartbeat Data?
 
-In real wireless transmission, packets need a short checksum (CRC) at the end to catch radio static. CRC is part of wireless packet wrapping, not compression itself.
+**No. Exactly zero data was lost.**
 
-* Adding a **CRC-16** adds **2 bytes** to each window (+0.07%).
-* Adding a **CRC-32** adds **4 bytes** to each window (+0.13%).
+To prove this, we uncompressed all **120,798 points** of the recording and compared every single point side-by-side with the original sensor data:
 
-| Lead | Base Compressed Size | With CRC-16 (+2 B) | With CRC-32 (+4 B) | Target Budget | Headroom Remaining |
+```
+  Original Sensor Reading:     142   145   150   158   164 ...
+  After Uncompressing:         142   145   150   158   164 ...
+  Difference (Error):            0     0     0     0     0 ...
+```
+
+* **Total points tested:** 120,798
+* **Number of mismatched points:** 0
+* **Maximum difference found:** 0.000000
+* **Verdict:** **100% Bit-for-Bit Exact Match (PASS)**
+
+<p align="center">
+  <img src="docs/figures/original_vs_reconstructed.png" width="80%" alt="Waveform overlay" /><br>
+  <img src="docs/figures/reconstruction_error.png" width="80%" alt="Reconstruction error line at zero" />
+</p>
+
+---
+
+## 6. What About Wireless Error Checking (CRC)?
+
+When sending data through the air over Bluetooth, wireless noise can occasionally corrupt a byte. To protect against this, engineers attach a short checksum (called a CRC) to each packet.
+
+* Adding a **CRC-16** checksum adds **2 bytes** to each window.
+* Adding a **CRC-32** checksum adds **4 bytes** to each window.
+
+| Lead | Compressed Size | Size with CRC-16 (+2 B) | Size with CRC-32 (+4 B) | 1,000 B Budget | Safety Buffer Left |
 | :--- | :--- | :--- | :--- | :--- | :--- |
-| **Lead I** | 790.7 B | **792.7 B** | **794.7 B** | 1,000 B | **205.3 Bytes** |
-| **Lead II** | 856.5 B | **858.5 B** | **860.5 B** | 1,000 B | **139.5 Bytes** |
+| **Lead I** | 790.7 B | **792.7 B** | **794.7 B** | 1,000 B | **205.3 Bytes left** |
+| **Lead II** | 856.5 B | **858.5 B** | **860.5 B** | 1,000 B | **139.5 Bytes left** |
 
-Adding CRC keeps us comfortably under budget with over 139 bytes of headroom to spare. (See [CRC_OVERHEAD_ANALYSIS.md](CRC_OVERHEAD_ANALYSIS.md) for details).
+Even with wireless safety codes added, we still have over **139 to 205 bytes of extra room**.
 
 ---
 
-## 8. Next Steps: Bringing It to Hardware
+## 7. Can a Small Wearable Chip Run This?
 
-The Python code in [benchmark_ads1292r.py](benchmark_ads1292r.py) is our reference algorithm. The next step is embedding it into the physical E4A patch:
+**Yes, easily.**
+
+A wearable patch uses a tiny microcontroller (like the **Nordic nRF52840**) powered by a small coin-cell or pouch battery. It does not have the power of a laptop.
+
+Our algorithm was designed specifically for these small chips:
+* **No Decimals / Floating Point:** All math uses simple whole numbers (integers).
+* **Super Low Memory:** Needs less than **3 KB of RAM** total. The nRF52840 has 256 KB of RAM, so our code uses barely 1% of it.
+* **No AI or Neural Networks:** It runs fast, uses very little battery, and behaves identically every single time.
+
+---
+
+## 8. Honest Engineering Notes (Things to Keep in Mind)
+
+1. **Test Dataset:** Our benchmark used a real Shimmer3 ECG recording. The data was stored in millivolts (mV), which we mapped back to sensor counts. Final confirmation will happen when we read live bytes from our physical E4A circuit board.
+2. **500-Hz Sampling:** The original recording was 1,000 Hz, which we stepped down to 500 Hz for testing. Live 500-Hz acquisition from the ADS1292R chip will be verified on the actual hardware.
+3. **Noisy Leads:** If a chest lead has heavy electrical noise, it needs analog hardware filtering (filtering out electrical static before the chip digitizes it) so the compressor doesn't have to waste space storing noise.
+
+---
+
+## 9. Next Steps: Putting It Onto the Physical Patch
+
+The R&D and math verification in Python are complete. Here is the roadmap for the hardware team:
 
 ```
-[ Python Algorithm ]  ──►  (R&D Complete & Verified)
-         │
-         ▼
-[ Write in Clean C ]  ──►  Uses include/e4a_ecg_compression.h
-         │
-         ▼
-[ Zephyr RTOS Driver ] ──► Runs on Nordic nRF52840 microcontroller
-         │
-         ▼
-[ Physical Sensor ]   ──► Read live samples from ADS1292R chip over SPI
-         │
-         ▼
-[ Battery & Speed ]   ──► Measure actual CPU cycle time and microamps
+  [ Step 1: Python R&D ]        ──►  COMPLETE & VERIFIED
+            │
+            ▼
+  [ Step 2: C Code ]            ──►  Write clean C code using include/e4a_ecg_compression.h
+            │
+            ▼
+  [ Step 3: Flash to MCU ]      ──►  Run on the Nordic nRF52840 using Zephyr RTOS
+            │
+            ▼
+  [ Step 4: Wire to Sensor ]    ──►  Connect SPI pins to the TI ADS1292R chip
+            │
+            ▼
+  [ Step 5: Battery Test ]      ──►  Measure exact battery life and microamp draw
 ```
 
 ---
 
-## 9. Current Limitations (Honest Engineering Notes)
+## 10. Repository File Guide
 
-1. **Calibrated Dataset:** The dataset came as calibrated millivolt values, not raw binary sensor dumps.
-2. **500-Hz Resampling:** The 500-Hz stream was downsampled from 1000-Hz data for simulation. Direct 500-Hz hardware capture still needs validation.
-3. **Chest Lead:** The chest lead (Vx-RL) failed the 1,000-byte budget due to high baseline noise.
-4. **Hardware Measurements:** Actual battery draw, CPU cycles, and wireless transmission times must still be measured on the physical circuit board.
-
----
-
-## 10. R&D Conclusion
-
-After testing multiple approaches, we selected **adaptive LPC-4 prediction with Delta fallback, ZigZag mapping, and Golomb-Rice packing**.
-
-On real ECG test data at 500 Hz, this algorithm compressed **Lead I to ~791 bytes** and **Lead II to ~857 bytes** per 2-second window (a **71% to 74% reduction**), easily beating our 1,000-byte ceiling while reconstructing every single sample with **zero error**. 
-
-These results prove the concept works. We are now ready to freeze this algorithm design and build the C implementation for the physical E4A telemetry device.
-
----
-
-## Repository Files
-* [benchmark_ads1292r.py](benchmark_ads1292r.py) — The Python benchmark and audit script
-* [BENCHMARK_REPORT.md](BENCHMARK_REPORT.md) — Full technical audit report
-* [CRC_OVERHEAD_ANALYSIS.md](CRC_OVERHEAD_ANALYSIS.md) — Checksum and frame integrity calculations
-* [benchmark_results.json](benchmark_results.json) — Complete machine-readable results
-* [window_results.csv](window_results.csv) — Window-by-window benchmark metrics
-* [include/e4a_ecg_compression.h](include/e4a_ecg_compression.h) — Target C header file for embedded implementation
+* [benchmark_ads1292r.py](benchmark_ads1292r.py) — The Python benchmark program that runs the compression and tests the data.
+* [generate_figures.py](generate_figures.py) — The script that created all the charts in this guide.
+* [BENCHMARK_REPORT.md](BENCHMARK_REPORT.md) — The comprehensive, in-depth technical audit report.
+* [CRC_OVERHEAD_ANALYSIS.md](CRC_OVERHEAD_ANALYSIS.md) — Full calculations for packet checksums and wireless frames.
+* [benchmark_results.json](benchmark_results.json) — All benchmark numbers saved in machine-readable JSON format.
+* [window_results.csv](window_results.csv) — Exact sizes and metrics for all 60 test windows.
+* [include/e4a_ecg_compression.h](include/e4a_ecg_compression.h) — The clean C header file for the microcontroller team.
