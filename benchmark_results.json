@@ -18,6 +18,15 @@
     "qrs_handling": "Deterministic sub-block mode selection (LPC-4 vs Transient Delta)",
     "header_overhead_included": true
   },
+  "crc_overhead_analysis": {
+    "note": "CRC overhead is not included in primary compression size.",
+    "crc16_bytes_per_window": 2,
+    "crc32_bytes_per_window": 4,
+    "lead_i_mean_with_crc16": 792.73,
+    "lead_i_mean_with_crc32": 794.73,
+    "lead_ii_mean_with_crc16": 858.53,
+    "lead_ii_mean_with_crc32": 860.53
+  },
   "inspection_report": {
     "file_path": "/home/anubhavtripathi/Documents/Projects/e4a-ecg-compression/Shimmer3_ECG_Sample_Data/SampleECG_Session1_Shimmer_B64E_Calibrated_SD.csv",
     "num_rows": 120798,
@@ -50,46 +59,68 @@
     "nominal_sampling_rate_hz": 1000.0,
     "data_representation": "Calibrated floating-point physical units (mV) with underlying discrete ADC quantization steps (~0.36 uV LSB)",
     "is_raw_ads1292r_integers": false,
+    "integer_mapping_audit": {
+      "step_size_mV": 0.0003606081439208984,
+      "mapping_status": "Mathematically verified discrete calibration inversion (120,795 / 120,798 samples exact within IEEE-754 precision; 3 outlier samples in Lead II).",
+      "is_hardware_proven": false,
+      "hardware_note": "Inferred from Shimmer3 calibration matrix sensitivity constant; not direct SPI/register dump."
+    },
     "channel_details": {
       "Shimmer_B64E_ECG_LA-RA_24BIT_CAL": {
-        "type": "ECG Lead",
+        "classification": "ECG Lead I",
         "is_cardiac_ecg": true,
         "min_val_mV": -0.174894949781293,
         "max_val_mV": 0.442466192539477,
-        "unique_values": 1663,
-        "detected_step_mV": 0.0003606081438779496,
-        "max_quantum_error": 1.4271813597588334e-07,
-        "outlier_samples": 0
+        "std_dev_codes": 245.32260070677313,
+        "mean_abs_diff_codes": 12.948823232365042,
+        "diff_entropy_bits": 5.945999070038072,
+        "step_mV": 0.0003606081439208984,
+        "max_deviation_from_integer": 1.4271813597588334e-07,
+        "non_integer_samples_count": 0,
+        "max_float_reconstruction_err_mV": 5.1465387507221294e-11,
+        "mean_float_reconstruction_err_mV": 9.314047553224542e-12
       },
       "Shimmer_B64E_ECG_LL-RA_24BIT_CAL": {
-        "type": "ECG Lead",
+        "classification": "ECG Lead II",
         "is_cardiac_ecg": true,
         "min_val_mV": -0.786486361799999,
         "max_val_mV": 56.1673869094118,
-        "unique_values": 3036,
-        "detected_step_mV": 0.0003606081438779496,
-        "max_quantum_error": 0.39998193219071254,
-        "outlier_samples": 3
+        "std_dev_codes": 912.4991432507954,
+        "mean_abs_diff_codes": 26.58368999230113,
+        "diff_entropy_bits": 6.283062315936283,
+        "step_mV": 0.0003606081439208984,
+        "max_deviation_from_integer": 0.39998193219071254,
+        "non_integer_samples_count": 3,
+        "max_float_reconstruction_err_mV": 0.00014423674216601512,
+        "mean_float_reconstruction_err_mV": 3.642632335159048e-09
       },
       "Shimmer_B64E_ECG_RESP_24BIT_CAL": {
-        "type": "Respiration/Impedance",
+        "classification": "Respiration (Thoracic Impedance)",
         "is_cardiac_ecg": false,
         "min_val_mV": -1.77094659458954,
         "max_val_mV": -1.20407059241183,
-        "unique_values": 1467,
-        "detected_step_mV": 0.00036060814386984497,
-        "max_quantum_error": 5.712354322895408e-07,
-        "outlier_samples": 0
+        "std_dev_codes": 130.91999189947973,
+        "mean_abs_diff_codes": 11.965901471063024,
+        "diff_entropy_bits": 5.904787742409342,
+        "step_mV": 0.0003606081439208984,
+        "max_deviation_from_integer": 5.712354322895408e-07,
+        "non_integer_samples_count": 0,
+        "max_float_reconstruction_err_mV": 2.059921122565811e-10,
+        "mean_float_reconstruction_err_mV": 1.7683300648668383e-10
       },
       "Shimmer_B64E_ECG_Vx-RL_24BIT_CAL": {
-        "type": "ECG Lead",
+        "classification": "Chest/Precordial Lead",
         "is_cardiac_ecg": true,
         "min_val_mV": -3.56893879997001,
         "max_val_mV": -2.57474214729573,
-        "unique_values": 2328,
-        "detected_step_mV": 0.0003606081438696229,
-        "max_quantum_error": 1.1511710908962414e-06,
-        "outlier_samples": 0
+        "std_dev_codes": 422.1542935074563,
+        "mean_abs_diff_codes": 114.51137031548797,
+        "diff_entropy_bits": 9.00378673091985,
+        "step_mV": 0.0003606081439208984,
+        "max_deviation_from_integer": 1.1511710908962414e-06,
+        "non_integer_samples_count": 0,
+        "max_float_reconstruction_err_mV": 4.151217147807529e-10,
+        "mean_float_reconstruction_err_mV": 3.5446530632267197e-10
       }
     }
   },
@@ -98,7 +129,8 @@
       "channel_name": "Lead I (LA-RA)",
       "sampling_rate_hz": 1000.0,
       "window_duration_sec": 1.0,
-      "total_windows": 120,
+      "complete_windows_count": 120,
+      "trailing_samples": 798,
       "raw_bytes_per_window": 3000,
       "mean_compressed_bytes": 779.25,
       "median_compressed_bytes": 779.0,
@@ -113,22 +145,33 @@
       "windows_gt_1000b": 0,
       "hit_rate_le_1000b_pct": 100.0,
       "mean_reduction_pct": 74.03,
+      "worst_case_reduction_pct": 73.27,
       "mean_compression_ratio": 3.85,
-      "total_raw_bytes": 362394,
-      "total_compressed_bytes": 94147,
-      "total_reduction_pct": 74.02,
-      "reconstruction_pass": true,
-      "samples_tested": 120000,
-      "mismatches": 0,
-      "max_error": 0,
-      "first_mismatch_index": null,
-      "full_stream_exact_pass": true
+      "tail_window": {
+        "samples": 798,
+        "raw_bytes": 2394,
+        "compressed_bytes": 637,
+        "reduction_percent": 73.39,
+        "reconstruction_exact": true
+      },
+      "full_stream": {
+        "total_samples": 120798,
+        "total_raw_bytes": 362394,
+        "total_compressed_bytes": 94147,
+        "total_reduction_pct": 74.02,
+        "samples_tested": 120798,
+        "mismatches": 0,
+        "max_absolute_error": 0,
+        "first_mismatch_index": null,
+        "exact_pass": true
+      }
     },
     "Lead II (LL-RA)": {
       "channel_name": "Lead II (LL-RA)",
       "sampling_rate_hz": 1000.0,
       "window_duration_sec": 1.0,
-      "total_windows": 120,
+      "complete_windows_count": 120,
+      "trailing_samples": 798,
       "raw_bytes_per_window": 3000,
       "mean_compressed_bytes": 816.29,
       "median_compressed_bytes": 816.5,
@@ -143,22 +186,33 @@
       "windows_gt_1000b": 0,
       "hit_rate_le_1000b_pct": 100.0,
       "mean_reduction_pct": 72.79,
+      "worst_case_reduction_pct": 71.07,
       "mean_compression_ratio": 3.68,
-      "total_raw_bytes": 362394,
-      "total_compressed_bytes": 98618,
-      "total_reduction_pct": 72.79,
-      "reconstruction_pass": true,
-      "samples_tested": 120000,
-      "mismatches": 0,
-      "max_error": 0,
-      "first_mismatch_index": null,
-      "full_stream_exact_pass": true
+      "tail_window": {
+        "samples": 798,
+        "raw_bytes": 2394,
+        "compressed_bytes": 663,
+        "reduction_percent": 72.31,
+        "reconstruction_exact": true
+      },
+      "full_stream": {
+        "total_samples": 120798,
+        "total_raw_bytes": 362394,
+        "total_compressed_bytes": 98618,
+        "total_reduction_pct": 72.79,
+        "samples_tested": 120798,
+        "mismatches": 0,
+        "max_absolute_error": 0,
+        "first_mismatch_index": null,
+        "exact_pass": true
+      }
     },
     "Respiration (RESP)": {
       "channel_name": "Respiration (RESP)",
       "sampling_rate_hz": 1000.0,
       "window_duration_sec": 1.0,
-      "total_windows": 120,
+      "complete_windows_count": 120,
+      "trailing_samples": 798,
       "raw_bytes_per_window": 3000,
       "mean_compressed_bytes": 789.02,
       "median_compressed_bytes": 788.0,
@@ -173,22 +227,33 @@
       "windows_gt_1000b": 0,
       "hit_rate_le_1000b_pct": 100.0,
       "mean_reduction_pct": 73.7,
+      "worst_case_reduction_pct": 72.87,
       "mean_compression_ratio": 3.8,
-      "total_raw_bytes": 362394,
-      "total_compressed_bytes": 95330,
-      "total_reduction_pct": 73.69,
-      "reconstruction_pass": true,
-      "samples_tested": 120000,
-      "mismatches": 0,
-      "max_error": 0,
-      "first_mismatch_index": null,
-      "full_stream_exact_pass": true
+      "tail_window": {
+        "samples": 798,
+        "raw_bytes": 2394,
+        "compressed_bytes": 647,
+        "reduction_percent": 72.97,
+        "reconstruction_exact": true
+      },
+      "full_stream": {
+        "total_samples": 120798,
+        "total_raw_bytes": 362394,
+        "total_compressed_bytes": 95330,
+        "total_reduction_pct": 73.69,
+        "samples_tested": 120798,
+        "mismatches": 0,
+        "max_absolute_error": 0,
+        "first_mismatch_index": null,
+        "exact_pass": true
+      }
     },
     "Chest Lead (Vx-RL)": {
       "channel_name": "Chest Lead (Vx-RL)",
       "sampling_rate_hz": 1000.0,
       "window_duration_sec": 1.0,
-      "total_windows": 120,
+      "complete_windows_count": 120,
+      "trailing_samples": 798,
       "raw_bytes_per_window": 3000,
       "mean_compressed_bytes": 1219.58,
       "median_compressed_bytes": 1218.0,
@@ -203,16 +268,26 @@
       "windows_gt_1000b": 120,
       "hit_rate_le_1000b_pct": 0.0,
       "mean_reduction_pct": 59.35,
+      "worst_case_reduction_pct": 58.47,
       "mean_compression_ratio": 2.46,
-      "total_raw_bytes": 362394,
-      "total_compressed_bytes": 147325,
-      "total_reduction_pct": 59.35,
-      "reconstruction_pass": true,
-      "samples_tested": 120000,
-      "mismatches": 0,
-      "max_error": 0,
-      "first_mismatch_index": null,
-      "full_stream_exact_pass": true
+      "tail_window": {
+        "samples": 798,
+        "raw_bytes": 2394,
+        "compressed_bytes": 975,
+        "reduction_percent": 59.27,
+        "reconstruction_exact": true
+      },
+      "full_stream": {
+        "total_samples": 120798,
+        "total_raw_bytes": 362394,
+        "total_compressed_bytes": 147325,
+        "total_reduction_pct": 59.35,
+        "samples_tested": 120798,
+        "mismatches": 0,
+        "max_absolute_error": 0,
+        "first_mismatch_index": null,
+        "exact_pass": true
+      }
     }
   },
   "experiment_b_simulated_500hz": {
@@ -220,7 +295,8 @@
       "channel_name": "Lead I (LA-RA)",
       "sampling_rate_hz": 500.0,
       "window_duration_sec": 2.0,
-      "total_windows": 60,
+      "complete_windows_count": 60,
+      "trailing_samples": 399,
       "raw_bytes_per_window": 3000,
       "mean_compressed_bytes": 790.73,
       "median_compressed_bytes": 792.0,
@@ -235,22 +311,33 @@
       "windows_gt_1000b": 0,
       "hit_rate_le_1000b_pct": 100.0,
       "mean_reduction_pct": 73.64,
+      "worst_case_reduction_pct": 72.77,
       "mean_compression_ratio": 3.79,
-      "total_raw_bytes": 181197,
-      "total_compressed_bytes": 47774,
-      "total_reduction_pct": 73.63,
-      "reconstruction_pass": true,
-      "samples_tested": 60000,
-      "mismatches": 0,
-      "max_error": 0,
-      "first_mismatch_index": null,
-      "full_stream_exact_pass": true
+      "tail_window": {
+        "samples": 399,
+        "raw_bytes": 1197,
+        "compressed_bytes": 330,
+        "reduction_percent": 72.43,
+        "reconstruction_exact": true
+      },
+      "full_stream": {
+        "total_samples": 60399,
+        "total_raw_bytes": 181197,
+        "total_compressed_bytes": 47774,
+        "total_reduction_pct": 73.63,
+        "samples_tested": 60399,
+        "mismatches": 0,
+        "max_absolute_error": 0,
+        "first_mismatch_index": null,
+        "exact_pass": true
+      }
     },
     "Lead II (LL-RA)": {
       "channel_name": "Lead II (LL-RA)",
       "sampling_rate_hz": 500.0,
       "window_duration_sec": 2.0,
-      "total_windows": 60,
+      "complete_windows_count": 60,
+      "trailing_samples": 399,
       "raw_bytes_per_window": 3000,
       "mean_compressed_bytes": 856.53,
       "median_compressed_bytes": 856.5,
@@ -265,22 +352,33 @@
       "windows_gt_1000b": 0,
       "hit_rate_le_1000b_pct": 100.0,
       "mean_reduction_pct": 71.45,
+      "worst_case_reduction_pct": 69.17,
       "mean_compression_ratio": 3.5,
-      "total_raw_bytes": 181197,
-      "total_compressed_bytes": 51749,
-      "total_reduction_pct": 71.44,
-      "reconstruction_pass": true,
-      "samples_tested": 60000,
-      "mismatches": 0,
-      "max_error": 0,
-      "first_mismatch_index": null,
-      "full_stream_exact_pass": true
+      "tail_window": {
+        "samples": 399,
+        "raw_bytes": 1197,
+        "compressed_bytes": 357,
+        "reduction_percent": 70.18,
+        "reconstruction_exact": true
+      },
+      "full_stream": {
+        "total_samples": 60399,
+        "total_raw_bytes": 181197,
+        "total_compressed_bytes": 51749,
+        "total_reduction_pct": 71.44,
+        "samples_tested": 60399,
+        "mismatches": 0,
+        "max_absolute_error": 0,
+        "first_mismatch_index": null,
+        "exact_pass": true
+      }
     },
     "Respiration (RESP)": {
       "channel_name": "Respiration (RESP)",
       "sampling_rate_hz": 500.0,
       "window_duration_sec": 2.0,
-      "total_windows": 60,
+      "complete_windows_count": 60,
+      "trailing_samples": 399,
       "raw_bytes_per_window": 3000,
       "mean_compressed_bytes": 798.27,
       "median_compressed_bytes": 796.0,
@@ -295,22 +393,33 @@
       "windows_gt_1000b": 0,
       "hit_rate_le_1000b_pct": 100.0,
       "mean_reduction_pct": 73.39,
+      "worst_case_reduction_pct": 72.63,
       "mean_compression_ratio": 3.76,
-      "total_raw_bytes": 181197,
-      "total_compressed_bytes": 48229,
-      "total_reduction_pct": 73.38,
-      "reconstruction_pass": true,
-      "samples_tested": 60000,
-      "mismatches": 0,
-      "max_error": 0,
-      "first_mismatch_index": null,
-      "full_stream_exact_pass": true
+      "tail_window": {
+        "samples": 399,
+        "raw_bytes": 1197,
+        "compressed_bytes": 333,
+        "reduction_percent": 72.18,
+        "reconstruction_exact": true
+      },
+      "full_stream": {
+        "total_samples": 60399,
+        "total_raw_bytes": 181197,
+        "total_compressed_bytes": 48229,
+        "total_reduction_pct": 73.38,
+        "samples_tested": 60399,
+        "mismatches": 0,
+        "max_absolute_error": 0,
+        "first_mismatch_index": null,
+        "exact_pass": true
+      }
     },
     "Chest Lead (Vx-RL)": {
       "channel_name": "Chest Lead (Vx-RL)",
       "sampling_rate_hz": 500.0,
       "window_duration_sec": 2.0,
-      "total_windows": 60,
+      "complete_windows_count": 60,
+      "trailing_samples": 399,
       "raw_bytes_per_window": 3000,
       "mean_compressed_bytes": 1330.78,
       "median_compressed_bytes": 1329.0,
@@ -325,16 +434,26 @@
       "windows_gt_1000b": 60,
       "hit_rate_le_1000b_pct": 0.0,
       "mean_reduction_pct": 55.64,
+      "worst_case_reduction_pct": 54.73,
       "mean_compression_ratio": 2.25,
-      "total_raw_bytes": 181197,
-      "total_compressed_bytes": 80386,
-      "total_reduction_pct": 55.64,
-      "reconstruction_pass": true,
-      "samples_tested": 60000,
-      "mismatches": 0,
-      "max_error": 0,
-      "first_mismatch_index": null,
-      "full_stream_exact_pass": true
+      "tail_window": {
+        "samples": 399,
+        "raw_bytes": 1197,
+        "compressed_bytes": 539,
+        "reduction_percent": 54.97,
+        "reconstruction_exact": true
+      },
+      "full_stream": {
+        "total_samples": 60399,
+        "total_raw_bytes": 181197,
+        "total_compressed_bytes": 80386,
+        "total_reduction_pct": 55.64,
+        "samples_tested": 60399,
+        "mismatches": 0,
+        "max_absolute_error": 0,
+        "first_mismatch_index": null,
+        "exact_pass": true
+      }
     }
   }
 }
